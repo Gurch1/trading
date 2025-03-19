@@ -7,23 +7,23 @@
         {
           "Image": "images/pluginIcon",
           "TitleAlignment": "middle",
-          "FontSize": "14",
+          "FontSize": "15",
           "FontFamily": "Arial"
         }
       ],
       "SupportedInMultiActions": false,
-      "Tooltip": "Displays position size",
+      "Tooltip": "Displays current position size from a configuration file",
       "UUID": "com.gurch.positionsize.action",
-      "PropertyInspectorPath": ""
+      "PropertyInspectorPath": "pi.html"
     }
   ],
   "SDKVersion": 2,
   "Author": "Gurch",
   "CodePath": "index.html",
-  "Description": "Position Size Display",
+  "Description": "Displays trading position size from a configuration file",
   "Name": "Position Size",
   "Icon": "images/pluginIcon",
-  "Version": "1.0",
+  "Version": "1.0.3",
   "OS": [
     {
       "Platform": "mac",
