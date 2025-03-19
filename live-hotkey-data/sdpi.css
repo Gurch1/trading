@@ -1,0 +1,31 @@
+.sdpi-wrapper {
+  padding: 15px;
+}
+
+.sdpi-item {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.sdpi-item-label {
+  width: 30%;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.sdpi-item-value {
+  width: 70%;
+  padding: 4px;
+}
+
+button.sdpi-item-value {
+  cursor: pointer;
+  background-color: #303030;
+  color: white;
+  border: 1px solid #505050;
+  border-radius: 4px;
+}
+
+button.sdpi-item-value:hover {
+  background-color: #404040;
+}

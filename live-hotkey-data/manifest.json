@@ -1,0 +1,40 @@
+{
+  "Actions": [
+    {
+      "Icon": "images/actionIcon",
+      "Name": "Position Size",
+      "States": [
+        {
+          "Image": "images/pluginIcon",
+          "TitleAlignment": "middle",
+          "FontSize": "14",
+          "FontFamily": "Arial"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Displays position size",
+      "UUID": "com.gurch.positionsize.action",
+      "PropertyInspectorPath": ""
+    }
+  ],
+  "SDKVersion": 2,
+  "Author": "Gurch",
+  "CodePath": "index.html",
+  "Description": "Position Size Display",
+  "Name": "Position Size",
+  "Icon": "images/pluginIcon",
+  "Version": "1.0",
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.11"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "4.1"
+  }
+}

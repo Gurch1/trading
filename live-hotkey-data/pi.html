@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Position Size Settings</title>
+  <link rel="stylesheet" href="sdpi.css">
+</head>
+<body>
+  <div class="sdpi-wrapper">
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Config Path</div>
+      <input class="sdpi-item-value" id="configPath" type="text" value="W:/Stream Deck/Trading/ctrader ATP autohotkeys/btc-config.ini">
+    </div>
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Update Interval (ms)</div>
+      <input class="sdpi-item-value" id="updateInterval" type="number" value="1000" min="500" max="10000">
+    </div>
+    <div class="sdpi-item">
+      <button class="sdpi-item-value" id="testButton">Test Connection</button>
+    </div>
+    <div class="sdpi-item">
+      <div id="statusMessage" style="width: 100%; color: gray;">Status: Waiting for configuration</div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables
+    let websocket = null;
+    let uuid = null;
+    let actionParams = null;
+    let updateTimer = null;
+    
+    // When document has loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add event listeners to form elements
+      document.getElementById('configPath').addEventListener('change', saveSettings);
+      document.getElementById('updateInterval').addEventListener('change', saveSettings);
+      document.getElementById('testButton').addEventListener('click', testConnection);
+    });
+    
+    // Function to read config file and update position size
+    function updatePositionSize() {
+      const configPath = document.getElementById('configPath').value;
+      
+      // Instead of using XMLHttpRequest which has security restrictions,
+      // we'll simulate reading the file and just send the position size
+      // This is a workaround to avoid security issues
+      
+      // Hardcoded position size for testing - will be removed in production
+      const DEFAULT_POSITION_SIZE = "0.5";
+      
+      try {
+        // This is where we would normally read the file
+        // For now, we'll just use a simulated position size
+        // In production, you'll need a different approach to read local files
+        
+        // Simulate finding a position size in the file
+        sendToPlugin("positionSizeUpdate", { positionSize: DEFAULT_POSITION_SIZE });
+        document.getElementById('statusMessage').innerHTML = 'Status: Using simulated position size: ' + DEFAULT_POSITION_SIZE;
+        document.getElementById('statusMessage').style.color = 'orange';
+        
+        // In a real implementation, you would read the file and extract the position size
+      } catch (error) {
+        document.getElementById('statusMessage').innerHTML = 'Status: Error: ' + error.message;
+        document.getElementById('statusMessage').style.color = 'red';
+      }
+    }
+    
+    // Test the connection to the file
+    function testConnection() {
+      updatePositionSize();
+    }
+    
+    // Save settings
+    function saveSettings() {
+      const configPath = document.getElementById('configPath').value;
+      const updateInterval = parseInt(document.getElementById('updateInterval').value);
+      
+      // Save to Stream Deck
+      const settings = {
+        configPath: configPath,
+        updateInterval: updateInterval
+      };
+      
+      // Save both as local settings and global settings for this plugin
+      saveSettingsToStreamDeck(settings);
+      saveGlobalSettings(settings);
+      
+      // Restart the timer with new interval
+      startUpdateTimer(updateInterval);
+    }
+    
+    // Start the update timer
+    function startUpdateTimer(interval) {
+      // Clear any existing timer
+      if (updateTimer) {
+        clearInterval(updateTimer);
+      }
+      
+      // Set a new timer
+      updateTimer = setInterval(updatePositionSize, interval);
+    }
+    
+    // Send settings to Stream Deck
+    function saveSettingsToStreamDeck(settings) {
+      const json = {
+        "event": "setSettings",
+        "context": uuid,
+        "payload": settings
+      };
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    // Save global settings
+    function saveGlobalSettings(settings) {
+      const json = {
+        "event": "setGlobalSettings",
+        "context": uuid,
+        "payload": settings
+      };
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    // Send a message to the plugin
+    function sendToPlugin(type, payload) {
+      const json = {
+        "event": "sendToPlugin",
+        "context": uuid,
+        "payload": {
+          "type": type,
+          ...payload
+        }
+      };
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    // Connect to Stream Deck Property Inspector
+    function connectElgatoStreamDeckSocket(inPort, inPropertyInspectorUUID, inRegisterEvent, inInfo) {
+      uuid = inPropertyInspectorUUID;
+      actionParams = JSON.parse(inInfo);
+      
+      // Connect to Stream Deck
+      websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+      
+      websocket.onopen = function() {
+        // Register Property Inspector
+        const json = {
+          "event": inRegisterEvent,
+          "uuid": inPropertyInspectorUUID
+        };
+        
+        websocket.send(JSON.stringify(json));
+        
+        // Request settings
+        const getSettingsJson = {
+          "event": "getSettings",
+          "context": inPropertyInspectorUUID
+        };
+        
+        websocket.send(JSON.stringify(getSettingsJson));
+        
+        // Request global settings
+        const getGlobalSettingsJson = {
+          "event": "getGlobalSettings",
+          "context": inPropertyInspectorUUID
+        };
+        
+        websocket.send(JSON.stringify(getGlobalSettingsJson));
+      };
+      
+      websocket.onmessage = function(evt) {
+        const jsonObj = JSON.parse(evt.data);
+        const event = jsonObj.event;
+        
+        if (event === "didReceiveSettings") {
+          const settings = jsonObj.payload.settings;
+          if (settings) {
+            // Update UI with settings
+            if (settings.configPath) {
+              document.getElementById('configPath').value = settings.configPath;
+            }
+            if (settings.updateInterval) {
+              document.getElementById('updateInterval').value = settings.updateInterval;
+              startUpdateTimer(settings.updateInterval);
+            } else {
+              startUpdateTimer(1000); // Default to 1 second
+            }
+          } else {
+            // Start with default interval
+            startUpdateTimer(1000);
+          }
+        } else if (event === "didReceiveGlobalSettings") {
+          const settings = jsonObj.payload.settings;
+          if (settings) {
+            // Apply global settings if local settings aren't set
+            if (!document.getElementById('configPath').value && settings.configPath) {
+              document.getElementById('configPath').value = settings.configPath;
+            }
+            if (!document.getElementById('updateInterval').value && settings.updateInterval) {
+              document.getElementById('updateInterval').value = settings.updateInterval;
+              startUpdateTimer(settings.updateInterval);
+            }
+          }
+        } else if (event === "sendToPropertyInspector") {
+          const payload = jsonObj.payload;
+          if (payload && payload.type === "requestPositionSize") {
+            // Plugin is requesting an update
+            updatePositionSize();
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>
