@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Position Size</title>
+</head>
+<body>
+  <script>
+    // Global variables
+    let websocket = null;
+    let pluginUUID = null;
+    let contexts = {};
+    let updateTimer = null;
+    
+    // Properly encoded path
+    const CONFIG_PATH = "C:/trading/live-hotkey-data/config.ini";
+
+    // Connect to Stream Deck
+    function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
+      pluginUUID = inPluginUUID;
+      
+      // Connect to Stream Deck
+      websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+
+      // WebSocket handlers
+      websocket.onopen = function() {
+        // Register plugin with Stream Deck
+        const json = {
+          event: inRegisterEvent,
+          uuid: inPluginUUID
+        };
+        websocket.send(JSON.stringify(json));
+        
+        // Start checking for position size changes
+        startMonitoring();
+      };
+
+      websocket.onmessage = function(evt) {
+        const jsonObj = JSON.parse(evt.data);
+        const event = jsonObj.event;
+        
+        // Handle different types of events
+        if (event === "willAppear") {
+          // A button appeared, store its context
+          contexts[jsonObj.context] = true;
+          
+          // Set initial title while loading
+          setFormattedTitle(jsonObj.context, "?");
+          
+          // Immediately read and set position size
+          updatePositionSize();
+        }
+        else if (event === "willDisappear") {
+          // A button disappeared, remove its context
+          delete contexts[jsonObj.context];
+        }
+      };
+    }
+
+    // Start monitoring for changes in the position size
+    function startMonitoring() {
+      // Stop any existing timer
+      if (updateTimer) {
+        clearInterval(updateTimer);
+      }
+      
+      // Check every 1 second
+      updateTimer = setInterval(updatePositionSize, 1000);
+    }
+
+    // Update position size by reading from the config file
+    function updatePositionSize() {
+      try {
+        // Use fetch to read the config file - use encoded path
+        fetch("file:///" + CONFIG_PATH + "?" + Date.now())
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("Failed to read file");
+            }
+            return response.text();
+          })
+          .then(content => {
+            // Look for the position size using regex
+            const match = content.match(/\$positionsize\s*=\s*([0-9.]+)/);
+            if (match) {
+              const positionSize = match[1];
+              
+              // Update all active buttons with the position size
+              Object.keys(contexts).forEach(context => {
+                setFormattedTitle(context, positionSize);
+              });
+            } else {
+              // If position size not found, show a placeholder
+              Object.keys(contexts).forEach(context => {
+                setFormattedTitle(context, "?");
+              });
+            }
+          })
+          .catch(error => {
+            console.error("Error reading config file:", error);
+            // If error, just show a placeholder value
+            Object.keys(contexts).forEach(context => {
+              setFormattedTitle(context, "?");
+            });
+          });
+      } catch (error) {
+        console.error("Error in updatePositionSize:", error);
+      }
+    }
+
+    // Set a formatted title with label and value
+    function setFormattedTitle(context, value) {
+      if (!websocket) return;
+
+      // Changed to "Size" instead of "Pos Size"
+      const formattedTitle = "Size\n" + value;
+      
+      // Set the title using setTitle
+      const json = {
+        "event": "setTitle",
+        "context": context,
+        "payload": {
+          "title": formattedTitle,
+          "target": 0
+        }
+      };
+      websocket.send(JSON.stringify(json));
+    }
+  </script>
+</body>
+</html>
