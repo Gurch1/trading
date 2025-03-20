@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Position Size Plugin</title>
+  <!-- Include the configuration file -->
+  <script src="config.js"></script>
+</head>
+<body>
+  <script>
+    /**
+     * Position Size Plugin for Elgato Stream Deck
+     * 
+     * This plugin displays trading position size information on a Stream Deck button.
+     * It reads the position size from a configuration file and updates the button display.
+     * 
+     * @author Gurch
+     * @version 1.0.3
+     */
+
+    // Global variables
+    let websocket = null;        // WebSocket connection to Stream Deck
+    let pluginUUID = null;       // UUID of this plugin instance
+    let contexts = {};           // Map of active button contexts
+    let updateTimer = null;      // Timer for periodic updates
+    let settings = {};           // User settings (loaded from Stream Deck)
+    
+    /**
+     * Connect to Stream Deck
+     * This function is called by the Stream Deck software
+     * 
+     * @param {number} inPort - WebSocket port to connect to
+     * @param {string} inPluginUUID - UUID of this plugin
+     * @param {string} inRegisterEvent - Event name for registration
+     * @param {string} inInfo - Additional information
+     */
+    function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
+      console.log("Connecting to Stream Deck...");
+      pluginUUID = inPluginUUID;
+      
+      // Connect to Stream Deck WebSocket
+      websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+
+      // WebSocket event handlers
+      websocket.onopen = function() {
+        console.log("WebSocket connected");
+        
+        // Register plugin with Stream Deck
+        const json = {
+          event: inRegisterEvent,
+          uuid: inPluginUUID
+        };
+        websocket.send(JSON.stringify(json));
+        
+        // Request plugin settings
+        requestSettings();
+        
+        // Start checking for position size changes
+        startMonitoring();
+      };
+
+      websocket.onmessage = function(evt) {
+        // Parse the message from Stream Deck
+        const jsonObj = JSON.parse(evt.data);
+        const event = jsonObj.event;
+        
+        // Handle different types of events
+        switch(event) {
+          case "willAppear":
+            // A button appeared, store its context
+            handleWillAppear(jsonObj);
+            break;
+            
+          case "willDisappear":
+            // A button disappeared, remove its context
+            handleWillDisappear(jsonObj);
+            break;
+            
+          case "didReceiveSettings":
+            // Received settings from Stream Deck
+            handleDidReceiveSettings(jsonObj);
+            break;
+            
+          case "didReceiveGlobalSettings":
+            // Received global settings from Stream Deck
+            handleDidReceiveGlobalSettings(jsonObj);
+            break;
+            
+          case "sendToPlugin":
+            // Received a message from the Property Inspector
+            handleSendToPlugin(jsonObj);
+            break;
+            
+          case "systemDidWakeUp":
+            // System woke up from sleep, reconnect/refresh
+            updatePositionSize();
+            break;
+        }
+      };
+      
+      websocket.onclose = function() {
+        // Connection closed
+        console.log("WebSocket disconnected");
+      };
+      
+      websocket.onerror = function(error) {
+        // WebSocket error
+        console.error("WebSocket error:", error);
+      };
+    }
+
+    /**
+     * Handle willAppear event
+     * Called when a button appears on the Stream Deck
+     * 
+     * @param {object} jsonObj - Event data
+     */
+    function handleWillAppear(jsonObj) {
+      console.log("Button appeared:", jsonObj.context);
+      
+      // Store the button context
+      contexts[jsonObj.context] = true;
+      
+      // Set initial title while loading
+      setFormattedTitle(jsonObj.context, "?");
+      
+      // Apply settings from the button if available
+      if (jsonObj.payload && jsonObj.payload.settings) {
+        // Merge with existing settings
+        settings = {...settings, ...jsonObj.payload.settings};
+      }
+      
+      // Set custom background image if enabled
+      updateBackgroundImage(jsonObj.context);
+      
+      // Immediately read and set position size
+      updatePositionSize();
+    }
+    
+    /**
+     * Update the background image of the button
+     * 
+     * @param {string} context - Button context
+     */
+    function updateBackgroundImage(context) {
+      if (!websocket) return;
+      
+      const useBackgroundImage = settings.hasOwnProperty('useBackgroundImage') 
+        ? settings.useBackgroundImage 
+        : CONFIG.display.useBackgroundImage;
+      
+      if (useBackgroundImage && settings.backgroundImage) {
+        // Get the background image URL or path
+        let imageSrc = settings.backgroundImage;
+        
+        // Load and resize the image to fit Stream Deck button (144x144px)
+        loadAndResizeImage(imageSrc)
+          .then(resizedImageData => {
+            // Set the image using setImage event
+            const json = {
+              "event": "setImage",
+              "context": context,
+              "payload": {
+                "image": resizedImageData,
+                "target": 0,
+                "state": 0
+              }
+            };
+            websocket.send(JSON.stringify(json));
+          })
+          .catch(error => {
+            console.error("Error loading background image:", error);
+          });
+      }
+    }
+    
+    /**
+     * Load and resize an image
+     * 
+     * @param {string} src - Image URL or path
+     * @returns {Promise<string>} - Promise resolving to resized image data URL
+     */
+    function loadAndResizeImage(src) {
+      return new Promise((resolve, reject) => {
+        // Debug logging
+        const debug = settings.debug !== undefined ? settings.debug : CONFIG.settings.debug;
+        
+        if (debug) {
+          console.log("Loading background image:", src);
+        }
+        
+        // For local file paths, add file:// prefix
+        if (src.match(/^[a-zA-Z]:/)) {
+          // Local Windows path
+          const normalizedPath = src.replace(/\\/g, '/');
+          src = "file:///" + normalizedPath;
+        } else if (src.match(/^\//)) {
+          // Unix-style absolute path
+          src = "file://" + src;
+        }
+        
+        // Replace spaces with %20
+        src = src.replace(/ /g, '%20');
+        
+        if (debug) {
+          console.log("Processed image source:", src);
+        }
+        
+        // Create an image element to load the image
+        const img = new Image();
+        
+        // Handle load event
+        img.onload = function() {
+          if (debug) {
+            console.log("Image loaded successfully, original size:", img.width, "x", img.height);
+          }
+          
+          // Create canvas for resizing
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Set canvas size to Stream Deck button size (144x144)
+          canvas.width = 144;
+          canvas.height = 144;
+          
+          // Draw the image, fitting it to the canvas
+          ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
+          
+          // Get the resized image data URL
+          const resizedImageData = canvas.toDataURL('image/png');
+          resolve(resizedImageData);
+        };
+        
+        // Handle error event
+        img.onerror = function() {
+          reject(new Error("Failed to load image: " + src));
+        };
+        
+        // Set the source to load the image
+        img.src = src;
+      });
+    }
+
+    /**
+     * Handle willDisappear event
+     * Called when a button is removed from view
+     * 
+     * @param {object} jsonObj - Event data
+     */
+    function handleWillDisappear(jsonObj) {
+      console.log("Button disappeared:", jsonObj.context);
+      
+      // Remove the button context
+      delete contexts[jsonObj.context];
+    }
+
+    /**
+     * Handle didReceiveSettings event
+     * Called when settings are received from Stream Deck
+     * 
+     * @param {object} jsonObj - Event data with settings
+     */
+    function handleDidReceiveSettings(jsonObj) {
+      console.log("Received settings:", jsonObj.payload.settings);
+      
+      // Update settings
+      if (jsonObj.payload.settings) {
+        settings = {...settings, ...jsonObj.payload.settings};
+      }
+      
+      // Restart monitoring with new settings
+      startMonitoring();
+      
+      // Update backgrounds if changed
+      Object.keys(contexts).forEach(context => {
+        updateBackgroundImage(context);
+      });
+      
+      // Update button appearance immediately
+      Object.keys(contexts).forEach(context => {
+        updatePositionSize();
+      });
+    }
+
+    /**
+     * Handle didReceiveGlobalSettings event
+     * Called when global settings are received from Stream Deck
+     * 
+     * @param {object} jsonObj - Event data with global settings
+     */
+    function handleDidReceiveGlobalSettings(jsonObj) {
+      console.log("Received global settings:", jsonObj.payload.settings);
+      
+      // Apply global settings if no local settings exist
+      if (jsonObj.payload.settings) {
+        settings = {...jsonObj.payload.settings, ...settings};
+      }
+      
+      // Restart monitoring with new settings
+      startMonitoring();
+    }
+
+    /**
+     * Handle sendToPlugin event
+     * Called when a message is received from the Property Inspector
+     * 
+     * @param {object} jsonObj - Event data with message
+     */
+    function handleSendToPlugin(jsonObj) {
+      console.log("Message from Property Inspector:", jsonObj.payload);
+      
+      // Check message type
+      if (jsonObj.payload && jsonObj.payload.type) {
+        switch(jsonObj.payload.type) {
+          case "setSettings":
+            // Update settings
+            settings = {...settings, ...jsonObj.payload.settings};
+            startMonitoring();
+            
+            // Update backgrounds if changed
+            Object.keys(contexts).forEach(context => {
+              updateBackgroundImage(context);
+            });
+            break;
+            
+          case "getPositionSize":
+            // Property Inspector is requesting position size
+            updatePositionSize();
+            break;
+        }
+      }
+    }
+
+    /**
+     * Request settings from Stream Deck
+     */
+    function requestSettings() {
+      if (!websocket) return;
+      
+      // Request instance settings
+      const json = {
+        "event": "getSettings",
+        "context": pluginUUID
+      };
+      websocket.send(JSON.stringify(json));
+      
+      // Request global settings
+      const globalJson = {
+        "event": "getGlobalSettings",
+        "context": pluginUUID
+      };
+      websocket.send(JSON.stringify(globalJson));
+    }
+
+    /**
+     * Start monitoring for changes in the position size
+     */
+    function startMonitoring() {
+      console.log("Starting monitoring...");
+      
+      // Stop any existing timer
+      if (updateTimer) {
+        clearInterval(updateTimer);
+      }
+      
+      // Get update interval from settings or use default
+      const interval = settings.updateInterval || CONFIG.settings.updateInterval;
+      console.log(`Update interval: ${interval}ms`);
+      
+      // Check periodically
+      updateTimer = setInterval(updatePositionSize, interval);
+    }
+
+    /**
+     * Load file using XMLHttpRequest for better path handling
+     * 
+     * @param {string} filePath - Path to the file
+     * @returns {Promise<string>} - Promise resolving to file content
+     */
+    function loadFile(filePath) {
+      return new Promise((resolve, reject) => {
+        // Debug logging
+        const debug = settings.debug !== undefined ? settings.debug : CONFIG.settings.debug;
+        
+        if (debug) {
+          console.log("Loading file:", filePath);
+        }
+        
+        // For Windows network paths like W:, replace W: with file:///W:
+        // This converts W:/folder/file.ini to file:///W:/folder/file.ini
+        let fileUrl = filePath;
+        if (/^[a-zA-Z]:/.test(fileUrl)) {
+          // It's a Windows path, need to add file:/// prefix
+          fileUrl = "file:///" + fileUrl;
+        } else {
+          // Other path type, add file:// prefix
+          fileUrl = "file://" + fileUrl;
+        }
+        
+        // Replace all backslashes with forward slashes
+        fileUrl = fileUrl.replace(/\\/g, '/');
+        
+        // Replace spaces with %20
+        fileUrl = fileUrl.replace(/ /g, '%20');
+        
+        if (debug) {
+          console.log("File URL:", fileUrl);
+        }
+        
+        // Add cache buster to prevent caching
+        fileUrl += "?t=" + Date.now();
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", fileUrl, true);
+        
+        xhr.onload = function() {
+          if (xhr.status === 0 || xhr.status === 200) {
+            if (debug) {
+              console.log("File loaded successfully");
+            }
+            resolve(xhr.responseText);
+          } else {
+            reject(new Error("Failed to load file: " + xhr.status));
+          }
+        };
+        
+        xhr.onerror = function() {
+          if (debug) {
+            console.error("Error loading file:", fileUrl);
+          }
+          reject(new Error("Error loading file"));
+        };
+        
+        xhr.send();
+      });
+    }
+
+    /**
+     * Update position size by reading from the config file
+     */
+    function updatePositionSize() {
+      try {
+        // Get config path from settings or use default
+        const configPath = settings.configPath || CONFIG.settings.defaultConfigPath;
+        
+        // Debug logging
+        const debug = settings.debug !== undefined ? settings.debug : CONFIG.settings.debug;
+        
+        if (debug) {
+          console.log("Original path:", configPath);
+        }
+        
+        // Load the file using XHR for better path handling
+        loadFile(configPath)
+          .then(content => {
+            // Get regex pattern from settings or use default
+            let regexPattern = CONFIG.settings.positionSizeRegex;
+            if (settings.positionSizeRegex) {
+              try {
+                // Parse the regex string into a RegExp object
+                regexPattern = new RegExp(settings.positionSizeRegex.replace(/^\/|\/$/g, ''));
+              } catch (error) {
+                console.error("Invalid regex pattern, using default:", error);
+              }
+            }
+            
+            if (debug) {
+              console.log("File content:", content);
+              console.log("Using regex pattern:", regexPattern);
+            }
+            
+            // Use configured regex to extract position size
+            const match = content.match(regexPattern);
+            
+            if (match) {
+              // Position size found
+              let positionSize = match[1];
+              
+              // Format the position size based on settings
+              positionSize = formatPositionSize(positionSize);
+              
+              console.log("Position size found:", positionSize);
+              
+              // Update all active buttons
+              Object.keys(contexts).forEach(context => {
+                setFormattedTitle(context, positionSize, "success");
+              });
+              
+              // Send to Property Inspector if needed
+              if (websocket) {
+                sendToPropertyInspector({
+                  type: "positionSizeUpdate",
+                  positionSize: positionSize,
+                  success: true
+                });
+              }
+            } else {
+              // Position size not found
+              console.warn("Position size not found in config file");
+              
+              // Show placeholder on buttons
+              Object.keys(contexts).forEach(context => {
+                setFormattedTitle(context, "?", "error");
+              });
+              
+              // Send to Property Inspector if needed
+              if (websocket) {
+                sendToPropertyInspector({
+                  type: "positionSizeUpdate",
+                  success: false,
+                  error: "Position size not found in config file"
+                });
+              }
+            }
+          })
+          .catch(error => {
+            // Error reading file
+            console.error("Error reading config file:", error);
+            
+            // Show placeholder on buttons
+            Object.keys(contexts).forEach(context => {
+              setFormattedTitle(context, "?", "error");
+            });
+            
+            // Send to Property Inspector if needed
+            if (websocket) {
+              sendToPropertyInspector({
+                type: "positionSizeUpdate",
+                success: false,
+                error: error.message
+              });
+            }
+          });
+      } catch (error) {
+        console.error("Error in updatePositionSize:", error);
+      }
+    }
+    
+    /**
+     * Format the position size based on settings
+     * 
+     * @param {string} value - Raw position size value
+     * @returns {string} - Formatted position size
+     */
+    function formatPositionSize(value) {
+      // Convert to number
+      let numValue = parseFloat(value);
+      
+      // Check if it's a valid number
+      if (isNaN(numValue)) {
+        return value;
+      }
+      
+      // Get decimal places from settings or use default
+      const decimalPlaces = settings.hasOwnProperty('decimalPlaces') 
+        ? settings.decimalPlaces 
+        : CONFIG.settings.decimalPlaces;
+      
+      // Format to fixed decimal places
+      let formatted = numValue.toFixed(decimalPlaces);
+      
+      // Add percentage sign if configured
+      const showPercentage = settings.hasOwnProperty('showPercentage') 
+        ? settings.showPercentage 
+        : CONFIG.settings.showPercentage;
+      
+      if (showPercentage) {
+        formatted += '%';
+      }
+      
+      return formatted;
+    }
+
+    /**
+     * Set a formatted title on a Stream Deck button
+     * 
+     * @param {string} context - Button context
+     * @param {string} value - Value to display
+     * @param {string} state - State of the button ('success', 'error', or '')
+     */
+    function setFormattedTitle(context, value, state = '') {
+      if (!websocket) return;
+
+      // Get title from settings or use default
+      const titleText = settings.title || CONFIG.display.title;
+      
+      // Format the title with label
+      const formattedTitle = titleText + "\n" + value;
+      
+      // Get state-specific color
+      let titleColor = settings.color || CONFIG.display.color;
+      
+      if (state === 'success') {
+        titleColor = settings.successColor || CONFIG.display.successColor;
+      } else if (state === 'error') {
+        titleColor = settings.errorColor || CONFIG.display.errorColor;
+      }
+      
+      // Set the title using setTitle event
+      const json = {
+        "event": "setTitle",
+        "context": context,
+        "payload": {
+          "title": formattedTitle,
+          "target": 0
+        }
+      };
+      
+      // Add fontFamily if configured
+      if (settings.fontFamily || CONFIG.display.fontFamily) {
+        json.payload.fontFamily = settings.fontFamily || CONFIG.display.fontFamily;
+      }
+      
+      // Add fontSize if configured
+      if (settings.fontSize || CONFIG.display.fontSize) {
+        json.payload.fontSize = settings.fontSize || CONFIG.display.fontSize;
+      }
+      
+      // Add title color if configured
+      if (titleColor) {
+        json.payload.titleColor = titleColor;
+      }
+      
+      // Add titleAlignment if configured
+      if (settings.titleAlignment || CONFIG.display.titleAlignment) {
+        json.payload.titleAlignment = settings.titleAlignment || CONFIG.display.titleAlignment;
+      }
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    /**
+     * Send a message to the Property Inspector
+     * 
+     * @param {object} payload - Message payload
+     */
+    function sendToPropertyInspector(payload) {
+      if (!websocket) return;
+      
+      // Send to all contexts
+      Object.keys(contexts).forEach(context => {
+        const json = {
+          "event": "sendToPropertyInspector",
+          "context": context,
+          "payload": payload
+        };
+        websocket.send(JSON.stringify(json));
+      });
+    }
+  </script>
+</body>
+</html>

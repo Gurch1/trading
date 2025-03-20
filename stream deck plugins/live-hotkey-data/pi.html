@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Position Size Settings</title>
+  <link rel="stylesheet" href="sdpi.css">
+  <!-- Include the configuration file -->
+  <script src="config.js"></script>
+  <style>
+    .sdpi-heading {
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      background-color: #1E1E1E;
+      padding: 8px;
+      border-radius: 4px;
+      color: #FFFFFF;
+    }
+    
+    .sdpi-item {
+      margin-bottom: 8px;
+    }
+    
+    .color-preview {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 1px solid #666;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    
+    .status-success {
+      color: #00FF00;
+    }
+    
+    .status-error {
+      color: #FF0000;
+    }
+    
+    .status-working {
+      color: #FFCC00;
+    }
+    
+    .tooltip {
+      font-size: 12px;
+      color: #AAAAAA;
+      margin-top: 2px;
+      margin-left: 30%;
+      font-style: italic;
+    }
+    
+    .bg-preview {
+      width: 100%;
+      height: 80px;
+      border: 1px solid #666;
+      margin-top: 10px;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="sdpi-wrapper">
+    <!-- Configuration Section -->
+    <div class="sdpi-heading">Configuration</div>
+    
+    <!-- Configuration file path -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Config Path</div>
+      <input class="sdpi-item-value" id="configPath" type="text" placeholder="Path to configuration file">
+    </div>
+    <div class="tooltip">Path to the file containing position size data (example: C:/Trading/config.ini)</div>
+    
+    <!-- Update interval -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Update Interval (ms)</div>
+      <input class="sdpi-item-value" id="updateInterval" type="number" min="500" max="10000" value="1000">
+    </div>
+    <div class="tooltip">How often to check for updates (milliseconds)</div>
+    
+    <!-- Position Size Regex -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Position Size Regex</div>
+      <input class="sdpi-item-value" id="positionSizeRegex" type="text" value="\\$positionsize=([0-9.]+)">
+    </div>
+    <div class="tooltip">Regular expression with capture group for the position size</div>
+
+    <!-- Display Format -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Display Format</div>
+      <div class="sdpi-item-value">
+        <select id="decimalPlaces" style="width: 40%">
+          <option value="0">0 decimals</option>
+          <option value="1">1 decimal</option>
+          <option value="2" selected>2 decimals</option>
+          <option value="3">3 decimals</option>
+          <option value="4">4 decimals</option>
+        </select>
+        <label style="margin-left: 10px;">
+          <input type="checkbox" id="showPercentage"> Show percentage
+        </label>
+      </div>
+    </div>
+    
+    <!-- Debug Mode -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Debug Mode</div>
+      <div class="sdpi-item-value">
+        <label>
+          <input type="checkbox" id="debug" checked> Enable debug logging
+        </label>
+      </div>
+    </div>
+    <div class="tooltip">Shows detailed logs in the console to help troubleshoot issues</div>
+    
+    <!-- Appearance Section -->
+    <div class="sdpi-heading">Appearance</div>
+    
+    <!-- Title -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Title</div>
+      <input class="sdpi-item-value" id="title" type="text" value="Size">
+    </div>
+    
+    <!-- Title Alignment -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Title Alignment</div>
+      <select class="sdpi-item-value" id="titleAlignment">
+        <option value="top">Top</option>
+        <option value="middle" selected>Middle</option>
+        <option value="bottom">Bottom</option>
+      </select>
+    </div>
+    
+    <!-- Font Size -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Font Size</div>
+      <input class="sdpi-item-value" id="fontSize" type="number" min="8" max="32" value="15">
+    </div>
+    
+    <!-- Font Family -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Font Family</div>
+      <select class="sdpi-item-value" id="fontFamily">
+        <option value="Arial" selected>Arial</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Tahoma">Tahoma</option>
+      </select>
+    </div>
+    
+    <!-- Text Color -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Text Color</div>
+      <input class="sdpi-item-value" id="color" type="text" style="width: calc(100% - 30px);" value="#FFFFFF">
+      <div class="color-preview" id="colorPreview"></div>
+    </div>
+    
+    <!-- Success Color -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Success Color</div>
+      <input class="sdpi-item-value" id="successColor" type="text" style="width: calc(100% - 30px);" value="#00FF00">
+      <div class="color-preview" id="successColorPreview"></div>
+    </div>
+    
+    <!-- Error Color -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Error Color</div>
+      <input class="sdpi-item-value" id="errorColor" type="text" style="width: calc(100% - 30px);" value="#FF0000">
+      <div class="color-preview" id="errorColorPreview"></div>
+    </div>
+    
+    <!-- Background Image Section -->
+    <div class="sdpi-heading">Background Image</div>
+    
+    <!-- Enable Background Image -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Use Background</div>
+      <div class="sdpi-item-value">
+        <label>
+          <input type="checkbox" id="useBackgroundImage"> Enable custom background
+        </label>
+      </div>
+    </div>
+    
+    <!-- Background Image Source -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Image URL/Path</div>
+      <input class="sdpi-item-value" id="backgroundImage" type="text" placeholder="URL or local file path (e.g., https://example.com/image.jpg or C:/images/bg.png)">
+    </div>
+    <div class="tooltip">URL or local file path to image (144×144px recommended)</div>
+    
+    <!-- Background Image Preview -->
+    <div class="sdpi-item">
+      <div class="sdpi-item-label">Preview</div>
+      <div class="sdpi-item-value">
+        <div class="bg-preview" id="bgPreview"></div>
+      </div>
+    </div>
+    
+    <!-- Actions Section -->
+    <div class="sdpi-heading">Actions</div>
+    
+    <!-- Test connection button -->
+    <div class="sdpi-item">
+      <button class="sdpi-item-value" id="testButton">Test Connection</button>
+    </div>
+    
+    <!-- Reset to defaults button -->
+    <div class="sdpi-item">
+      <button class="sdpi-item-value" id="resetButton">Reset to Defaults</button>
+    </div>
+    
+    <!-- Status message -->
+    <div class="sdpi-item">
+      <div id="statusMessage" style="width: 100%; color: gray;">Status: Waiting for configuration</div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Property Inspector for Position Size Plugin
+     * 
+     * This interface allows users to configure the plugin settings.
+     */
+    
+    // Global variables
+    let websocket = null;      // WebSocket connection to Stream Deck
+    let uuid = null;           // UUID of this Property Inspector instance
+    let actionParams = null;   // Action parameters
+    let settings = {};         // User settings
+    
+    /**
+     * Initialize Property Inspector UI
+     * Called when the DOM is fully loaded
+     */
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log("Property Inspector loaded");
+      
+      // Set default values from config
+      setDefaultValues();
+      
+      // Add event listeners to form elements
+      document.getElementById('configPath').addEventListener('change', saveSettings);
+      document.getElementById('updateInterval').addEventListener('change', saveSettings);
+      document.getElementById('positionSizeRegex').addEventListener('change', saveSettings);
+      document.getElementById('title').addEventListener('change', saveSettings);
+      document.getElementById('titleAlignment').addEventListener('change', saveSettings);
+      document.getElementById('fontSize').addEventListener('change', saveSettings);
+      document.getElementById('fontFamily').addEventListener('change', saveSettings);
+      document.getElementById('color').addEventListener('change', updateColorPreview);
+      document.getElementById('color').addEventListener('blur', saveSettings);
+      document.getElementById('successColor').addEventListener('change', updateColorPreview);
+      document.getElementById('successColor').addEventListener('blur', saveSettings);
+      document.getElementById('errorColor').addEventListener('change', updateColorPreview);
+      document.getElementById('errorColor').addEventListener('blur', saveSettings);
+      document.getElementById('decimalPlaces').addEventListener('change', saveSettings);
+      document.getElementById('showPercentage').addEventListener('change', saveSettings);
+      document.getElementById('debug').addEventListener('change', saveSettings);
+      
+      // Background image listeners
+      document.getElementById('useBackgroundImage').addEventListener('change', saveSettings);
+      document.getElementById('backgroundImage').addEventListener('change', updateBackgroundPreview);
+      document.getElementById('backgroundImage').addEventListener('blur', saveSettings);
+      
+      document.getElementById('testButton').addEventListener('click', testConnection);
+      document.getElementById('resetButton').addEventListener('click', resetToDefaults);
+      
+      // Initialize previews
+      updateColorPreview();
+      updateBackgroundPreview();
+    });
+    
+    /**
+     * Set default values from CONFIG
+     */
+    function setDefaultValues() {
+      document.getElementById('configPath').placeholder = CONFIG.settings.defaultConfigPath;
+      document.getElementById('updateInterval').value = CONFIG.settings.updateInterval;
+      document.getElementById('positionSizeRegex').value = CONFIG.settings.positionSizeRegex.toString().replace(/^\/|\/$/g, '');
+      document.getElementById('title').value = CONFIG.display.title;
+      document.getElementById('fontSize').value = CONFIG.display.fontSize;
+      document.getElementById('debug').checked = CONFIG.settings.debug;
+      document.getElementById('useBackgroundImage').checked = CONFIG.display.useBackgroundImage;
+      document.getElementById('backgroundImage').placeholder = "Enter URL or local file path";
+      
+      // Set default selected values for dropdowns
+      const titleAlignmentSelect = document.getElementById('titleAlignment');
+      for (let i = 0; i < titleAlignmentSelect.options.length; i++) {
+        if (titleAlignmentSelect.options[i].value === CONFIG.display.titleAlignment) {
+          titleAlignmentSelect.selectedIndex = i;
+          break;
+        }
+      }
+      
+      const fontFamilySelect = document.getElementById('fontFamily');
+      for (let i = 0; i < fontFamilySelect.options.length; i++) {
+        if (fontFamilySelect.options[i].value === CONFIG.display.fontFamily) {
+          fontFamilySelect.selectedIndex = i;
+          break;
+        }
+      }
+      
+      const decimalPlacesSelect = document.getElementById('decimalPlaces');
+      for (let i = 0; i < decimalPlacesSelect.options.length; i++) {
+        if (decimalPlacesSelect.options[i].value === CONFIG.settings.decimalPlaces.toString()) {
+          decimalPlacesSelect.selectedIndex = i;
+          break;
+        }
+      }
+      
+      document.getElementById('showPercentage').checked = CONFIG.settings.showPercentage;
+      document.getElementById('color').value = CONFIG.display.color;
+      document.getElementById('successColor').value = CONFIG.display.successColor;
+      document.getElementById('errorColor').value = CONFIG.display.errorColor;
+    }
+    
+    /**
+     * Update color preview elements
+     */
+    function updateColorPreview() {
+      updateSingleColorPreview('color', 'colorPreview');
+      updateSingleColorPreview('successColor', 'successColorPreview');
+      updateSingleColorPreview('errorColor', 'errorColorPreview');
+      
+      // Also save settings when colors change
+      saveSettings();
+    }
+    
+    /**
+     * Update background image preview
+     */
+    function updateBackgroundPreview() {
+      const bgImageInput = document.getElementById('backgroundImage');
+      const bgPreview = document.getElementById('bgPreview');
+      const useBackground = document.getElementById('useBackgroundImage').checked;
+      
+      // Get the image URL or path
+      let imageSrc = bgImageInput.value || '';
+      
+      if (imageSrc && useBackground) {
+        // For local file paths, add file:/// prefix
+        if (imageSrc.match(/^[a-zA-Z]:/)) {
+          // It's a Windows path
+          imageSrc = "file:///" + imageSrc.replace(/\\/g, '/');
+        } else if (imageSrc.match(/^\//)) {
+          // Unix-style absolute path
+          imageSrc = "file://" + imageSrc;
+        }
+        
+        // Update preview
+        bgPreview.style.backgroundImage = `url('${imageSrc}')`;
+        bgPreview.style.opacity = '1';
+      } else {
+        // No image or disabled
+        bgPreview.style.backgroundImage = 'none';
+        bgPreview.style.opacity = '0.3';
+      }
+      
+      // Save settings
+      saveSettings();
+    }
+    
+    /**
+     * Update a single color preview element
+     * 
+     * @param {string} inputId - ID of the color input
+     * @param {string} previewId - ID of the preview element
+     */
+    function updateSingleColorPreview(inputId, previewId) {
+      const colorInput = document.getElementById(inputId);
+      const colorPreview = document.getElementById(previewId);
+      
+      // Use value if exists, otherwise use placeholder
+      const colorValue = colorInput.value || colorInput.placeholder;
+      
+      // Validate if it's a proper hex color
+      if (/^#[0-9A-F]{6}$/i.test(colorValue)) {
+        colorPreview.style.backgroundColor = colorValue;
+      } else {
+        // Try to convert to hex if it's a named color
+        try {
+          const tempDiv = document.createElement('div');
+          tempDiv.style.color = colorValue;
+          document.body.appendChild(tempDiv);
+          const computedColor = getComputedStyle(tempDiv).color;
+          document.body.removeChild(tempDiv);
+          
+          colorPreview.style.backgroundColor = computedColor;
+        } catch (error) {
+          // Fallback to a default color
+          colorPreview.style.backgroundColor = "#CCCCCC";
+        }
+      }
+    }
+    
+    /**
+     * Reset all settings to defaults
+     */
+    function resetToDefaults() {
+      // Reset to CONFIG default values
+      document.getElementById('configPath').value = '';
+      document.getElementById('updateInterval').value = CONFIG.settings.updateInterval;
+      document.getElementById('positionSizeRegex').value = CONFIG.settings.positionSizeRegex.toString().replace(/^\/|\/$/g, '');
+      document.getElementById('title').value = CONFIG.display.title;
+      document.getElementById('fontSize').value = CONFIG.display.fontSize;
+      document.getElementById('color').value = CONFIG.display.color;
+      document.getElementById('successColor').value = CONFIG.display.successColor;
+      document.getElementById('errorColor').value = CONFIG.display.errorColor;
+      document.getElementById('useBackgroundImage').checked = CONFIG.display.useBackgroundImage;
+      document.getElementById('backgroundImage').value = '';
+      
+      // Reset dropdowns to default values
+      const titleAlignmentSelect = document.getElementById('titleAlignment');
+      for (let i = 0; i < titleAlignmentSelect.options.length; i++) {
+        if (titleAlignmentSelect.options[i].value === CONFIG.display.titleAlignment) {
+          titleAlignmentSelect.selectedIndex = i;
+          break;
+        }
+      }
+      
+      const fontFamilySelect = document.getElementById('fontFamily');
+      for (let i = 0; i < fontFamilySelect.options.length; i++) {
+        if (fontFamilySelect.options[i].value === CONFIG.display.fontFamily) {
+          fontFamilySelect.selectedIndex = i;
+          break;
+        }
+      }
+      
+      // Reset decimal places dropdown
+      const decimalPlacesSelect = document.getElementById('decimalPlaces');
+      for (let i = 0; i < decimalPlacesSelect.options.length; i++) {
+        if (decimalPlacesSelect.options[i].value === CONFIG.settings.decimalPlaces.toString()) {
+          decimalPlacesSelect.selectedIndex = i;
+          break;
+        }
+      }
+      
+      // Reset checkboxes
+      document.getElementById('showPercentage').checked = CONFIG.settings.showPercentage;
+      document.getElementById('debug').checked = CONFIG.settings.debug;
+      
+      // Update previews
+      updateColorPreview();
+      updateBackgroundPreview();
+      
+      // Save the default settings
+      saveSettings();
+      
+      updateStatusMessage("Settings reset to defaults", "blue");
+    }
+    
+    /**
+     * Test the connection to the configuration file
+     */
+    function testConnection() {
+      updateStatusMessage("Testing connection...", "blue", true);
+      
+      // Send message to plugin to request position size
+      sendToPlugin("getPositionSize", {});
+    }
+    
+    /**
+     * Save settings to Stream Deck
+     */
+    function saveSettings() {
+      // Get values from UI
+      const configPath = document.getElementById('configPath').value;
+      const updateInterval = parseInt(document.getElementById('updateInterval').value);
+      const positionSizeRegex = document.getElementById('positionSizeRegex').value;
+      const title = document.getElementById('title').value;
+      const titleAlignment = document.getElementById('titleAlignment').value;
+      const fontSize = document.getElementById('fontSize').value;
+      const fontFamily = document.getElementById('fontFamily').value;
+      const color = document.getElementById('color').value;
+      const successColor = document.getElementById('successColor').value;
+      const errorColor = document.getElementById('errorColor').value;
+      const decimalPlaces = parseInt(document.getElementById('decimalPlaces').value);
+      const showPercentage = document.getElementById('showPercentage').checked;
+      const debug = document.getElementById('debug').checked;
+      const useBackgroundImage = document.getElementById('useBackgroundImage').checked;
+      const backgroundImage = document.getElementById('backgroundImage').value;
+      
+      // Create settings object
+      const newSettings = {};
+      
+      // Only include non-empty values
+      if (configPath) newSettings.configPath = configPath;
+      if (!isNaN(updateInterval) && updateInterval >= 500) newSettings.updateInterval = updateInterval;
+      if (positionSizeRegex) newSettings.positionSizeRegex = positionSizeRegex;
+      if (title) newSettings.title = title;
+      if (titleAlignment) newSettings.titleAlignment = titleAlignment;
+      if (fontSize) newSettings.fontSize = fontSize;
+      if (fontFamily) newSettings.fontFamily = fontFamily;
+      if (color) newSettings.color = color;
+      if (successColor) newSettings.successColor = successColor;
+      if (errorColor) newSettings.errorColor = errorColor;
+      if (!isNaN(decimalPlaces)) newSettings.decimalPlaces = decimalPlaces;
+      newSettings.showPercentage = showPercentage;
+      newSettings.debug = debug;
+      newSettings.useBackgroundImage = useBackgroundImage;
+      if (backgroundImage) newSettings.backgroundImage = backgroundImage;
+      
+      // Save as settings
+      settings = {...settings, ...newSettings};
+      
+      // Send settings to plugin
+      sendToPlugin("setSettings", { settings: newSettings });
+      
+      // Also save to Stream Deck
+      saveSettingsToStreamDeck(newSettings);
+      saveGlobalSettings(newSettings);
+      
+      updateStatusMessage("Settings saved", "green");
+    }
+    
+    /**
+     * Send settings to Stream Deck
+     * 
+     * @param {object} settings - Settings to save
+     */
+    function saveSettingsToStreamDeck(settings) {
+      if (!websocket) return;
+      
+      const json = {
+        "event": "setSettings",
+        "context": uuid,
+        "payload": settings
+      };
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    /**
+     * Save global settings to Stream Deck
+     * 
+     * @param {object} settings - Settings to save globally
+     */
+    function saveGlobalSettings(settings) {
+      if (!websocket) return;
+      
+      const json = {
+        "event": "setGlobalSettings",
+        "context": uuid,
+        "payload": settings
+      };
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    /**
+     * Send a message to the plugin
+     * 
+     * @param {string} type - Message type
+     * @param {object} payload - Message payload
+     */
+    function sendToPlugin(type, payload) {
+      if (!websocket) return;
+      
+      const json = {
+        "event": "sendToPlugin",
+        "context": uuid,
+        "payload": {
+          "type": type,
+          ...payload
+        }
+      };
+      
+      websocket.send(JSON.stringify(json));
+    }
+    
+    /**
+     * Update the status message
+     * 
+     * @param {string} message - Message to display
+     * @param {string} color - Color for the message (optional)
+     * @param {boolean} isWorking - Whether to show working status (optional)
+     */
+    function updateStatusMessage(message, color = "gray", isWorking = false) {
+      const statusElement = document.getElementById('statusMessage');
+      statusElement.innerHTML = "Status: " + message;
+      
+      // Remove any existing classes
+      statusElement.classList.remove("status-success", "status-error", "status-working");
+      
+      // Add appropriate class
+      if (color === "green") {
+        statusElement.classList.add("status-success");
+      } else if (color === "red") {
+        statusElement.classList.add("status-error");
+      } else if (isWorking) {
+        statusElement.classList.add("status-working");
+      } else {
+        statusElement.style.color = color;
+      }
+    }
+    
+    /**
+     * Connect to Stream Deck Property Inspector
+     * This function is called by the Stream Deck software
+     * 
+     * @param {number} inPort - WebSocket port to connect to
+     * @param {string} inPropertyInspectorUUID - UUID of this Property Inspector
+     * @param {string} inRegisterEvent - Event name for registration
+     * @param {string} inInfo - Additional information
+     */
+    function connectElgatoStreamDeckSocket(inPort, inPropertyInspectorUUID, inRegisterEvent, inInfo) {
+      console.log("Connecting to Stream Deck...");
+      uuid = inPropertyInspectorUUID;
+      
+      try {
+        // Parse action parameters
+        actionParams = JSON.parse(inInfo);
+      } catch (error) {
+        console.error("Error parsing action parameters:", error);
+      }
+      
+      // Connect to Stream Deck WebSocket
+      websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+      
+      // WebSocket event handlers
+      websocket.onopen = function() {
+        console.log("WebSocket connected");
+        
+        // Register Property Inspector
+        const json = {
+          "event": inRegisterEvent,
+          "uuid": inPropertyInspectorUUID
+        };
+        websocket.send(JSON.stringify(json));
+        
+        // Request settings
+        const getSettingsJson = {
+          "event": "getSettings",
+          "context": inPropertyInspectorUUID
+        };
+        websocket.send(JSON.stringify(getSettingsJson));
+        
+        // Request global settings
+        const getGlobalSettingsJson = {
+          "event": "getGlobalSettings",
+          "context": inPropertyInspectorUUID
+        };
+        websocket.send(JSON.stringify(getGlobalSettingsJson));
+      };
+      
+      websocket.onmessage = function(evt) {
+        // Parse the message from Stream Deck
+        const jsonObj = JSON.parse(evt.data);
+        const event = jsonObj.event;
+        
+        // Handle different types of events
+        switch(event) {
+          case "didReceiveSettings":
+            // Received settings from Stream Deck
+            handleDidReceiveSettings(jsonObj);
+            break;
+            
+          case "didReceiveGlobalSettings":
+            // Received global settings from Stream Deck
+            handleDidReceiveGlobalSettings(jsonObj);
+            break;
+            
+          case "sendToPropertyInspector":
+            // Received a message from the plugin
+            handleSendToPropertyInspector(jsonObj);
+            break;
+        }
+      };
+      
+      websocket.onclose = function() {
+        // Connection closed
+        console.log("WebSocket disconnected");
+      };
+      
+      websocket.onerror = function(error) {
+        // WebSocket error
+        console.error("WebSocket error:", error);
+        updateStatusMessage("Connection error: " + error.message, "red");
+      };
+    }
+    
+    /**
+     * Handle didReceiveSettings event
+     * Called when settings are received from Stream Deck
+     * 
+     * @param {object} jsonObj - Event data with settings
+     */
+    function handleDidReceiveSettings(jsonObj) {
+      console.log("Received settings:", jsonObj.payload.settings);
+      
+      // Store settings
+      if (jsonObj.payload.settings) {
+        settings = {...settings, ...jsonObj.payload.settings};
+        
+        // Update UI with settings
+        updateUIFromSettings(jsonObj.payload.settings);
+      }
+    }
+    
+    /**
+     * Handle didReceiveGlobalSettings event
+     * Called when global settings are received from Stream Deck
+     * 
+     * @param {object} jsonObj - Event data with global settings
+     */
+    function handleDidReceiveGlobalSettings(jsonObj) {
+      console.log("Received global settings:", jsonObj.payload.settings);
+      
+      // Apply global settings if they exist
+      if (jsonObj.payload.settings) {
+        // Only use global settings for fields that don't have local settings
+        const mergedSettings = {...jsonObj.payload.settings};
+        
+        // Update UI with settings, but don't overwrite existing values
+        updateUIFromSettings(mergedSettings, false);
+        
+        // Merge with existing settings
+        settings = {...mergedSettings, ...settings};
+      }
+    }
+    
+    /**
+     * Handle sendToPropertyInspector event
+     * Called when a message is received from the plugin
+     * 
+     * @param {object} jsonObj - Event data with message
+     */
+    function handleSendToPropertyInspector(jsonObj) {
+      console.log("Message from plugin:", jsonObj.payload);
+      
+      // Check message type
+      if (jsonObj.payload && jsonObj.payload.type) {
+        switch(jsonObj.payload.type) {
+          case "positionSizeUpdate":
+            // Received position size update
+            if (jsonObj.payload.success) {
+              updateStatusMessage("Position size: " + jsonObj.payload.positionSize, "green");
+            } else {
+              updateStatusMessage("Error: " + (jsonObj.payload.error || "Unknown error"), "red");
+            }
+            break;
+        }
+      }
+    }
+    
+    /**
+     * Update UI elements from settings
+     * 
+     * @param {object} newSettings - Settings to apply
+     * @param {boolean} overwrite - Whether to overwrite existing values
+     */
+    function updateUIFromSettings(newSettings, overwrite = true) {
+      // Helper function to update form elements
+      function updateElement(id, value) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        
+        if (element.type === 'checkbox') {
+          element.checked = value;
+        } else {
+          if (overwrite || !element.value) {
+            element.value = value;
+          }
+        }
+      }
+      
+      // Update configuration settings
+      if (newSettings.configPath) updateElement('configPath', newSettings.configPath);
+      if (newSettings.updateInterval) updateElement('updateInterval', newSettings.updateInterval);
+      if (newSettings.positionSizeRegex) updateElement('positionSizeRegex', newSettings.positionSizeRegex);
+      
+      // Update appearance settings
+      if (newSettings.title) updateElement('title', newSettings.title);
+      if (newSettings.fontSize) updateElement('fontSize', newSettings.fontSize);
+      if (newSettings.color) updateElement('color', newSettings.color);
+      if (newSettings.successColor) updateElement('successColor', newSettings.successColor);
+      if (newSettings.errorColor) updateElement('errorColor', newSettings.errorColor);
+      
+      // Update background image settings
+      if (newSettings.hasOwnProperty('useBackgroundImage')) {
+        updateElement('useBackgroundImage', newSettings.useBackgroundImage);
+      }
+      if (newSettings.backgroundImage) updateElement('backgroundImage', newSettings.backgroundImage);
+      
+      // Update checkboxes
+      if (newSettings.hasOwnProperty('showPercentage')) {
+        updateElement('showPercentage', newSettings.showPercentage);
+      }
+      if (newSettings.hasOwnProperty('debug')) {
+        updateElement('debug', newSettings.debug);
+      }
+      
+      // Update select dropdowns
+      if (newSettings.titleAlignment) {
+        const titleAlignmentSelect = document.getElementById('titleAlignment');
+        for (let i = 0; i < titleAlignmentSelect.options.length; i++) {
+          if (titleAlignmentSelect.options[i].value === newSettings.titleAlignment) {
+            titleAlignmentSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      
+      if (newSettings.fontFamily) {
+        const fontFamilySelect = document.getElementById('fontFamily');
+        for (let i = 0; i < fontFamilySelect.options.length; i++) {
+          if (fontFamilySelect.options[i].value === newSettings.fontFamily) {
+            fontFamilySelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      
+      if (newSettings.hasOwnProperty('decimalPlaces')) {
+        const decimalPlacesSelect = document.getElementById('decimalPlaces');
+        for (let i = 0; i < decimalPlacesSelect.options.length; i++) {
+          if (decimalPlacesSelect.options[i].value === newSettings.decimalPlaces.toString()) {
+            decimalPlacesSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      
+      // Update previews
+      updateColorPreview();
+      updateBackgroundPreview();
+    }
+  </script>
+</body>
+</html>

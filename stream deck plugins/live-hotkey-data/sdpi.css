@@ -1,0 +1,83 @@
+.sdpi-wrapper {
+  padding: 15px;
+  color: #FFFFFF;
+}
+
+.sdpi-item {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.sdpi-item-label {
+  width: 30%;
+  font-weight: bold;
+  margin-right: 10px;
+  color: #FFFFFF;
+}
+
+.sdpi-item-value {
+  width: 70%;
+  padding: 4px;
+  color: #FFFFFF;
+  background-color: #2D2D2D;
+  border: 1px solid #3D3D3D;
+}
+
+button.sdpi-item-value {
+  cursor: pointer;
+  background-color: #303030;
+  color: white;
+  border: 1px solid #505050;
+  border-radius: 4px;
+}
+
+button.sdpi-item-value:hover {
+  background-color: #404040;
+}
+
+.sdpi-heading {
+  font-weight: bold;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  background-color: #1E1E1E;
+  padding: 8px;
+  border-radius: 4px;
+  color: #FFFFFF;
+}
+
+.tooltip {
+  font-size: 12px;
+  color: #AAAAAA;
+  margin-top: 2px;
+  margin-left: 30%;
+  font-style: italic;
+}
+
+select.sdpi-item-value {
+  background-color: #2D2D2D;
+  color: #FFFFFF;
+  border: 1px solid #3D3D3D;
+}
+
+input[type="text"], input[type="number"] {
+  background-color: #2D2D2D;
+  color: #FFFFFF;
+  border: 1px solid #3D3D3D;
+}
+
+input[type="checkbox"] {
+  accent-color: #007BFF;
+}
+
+/* Status message colors */
+.status-success {
+  color: #00FF00;
+}
+
+.status-error {
+  color: #FF0000;
+}
+
+.status-working {
+  color: #FFCC00;
+}
